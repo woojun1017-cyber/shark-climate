@@ -151,7 +151,7 @@
         #map {
             width: 100%;
             height: 100%;
-            background: #E5E7EB; /* 지도 로딩 전 기본 배경 */
+            background: #111827;
         }
 
         .legend {
@@ -242,24 +242,24 @@
     </div>
 
     <script>
-        // 1. 지도 생성: 한반도 중심 좌표 설정
+        // 1. 지도 생성 (한반도 중심)
         const map = L.map('map', {
             zoomControl: false,
             minZoom: 5,
             maxZoom: 10
         }).setView([35.8, 127.8], 6.5);
 
-        // ★ API KEY가 전혀 필요 없는 전세계 공용 OpenStreetMap 공식 타일 적용
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; OpenStreetMap contributors',
-            maxZoom: 18
+        // ★ API KEY가 전혀 필요 없는 ESRI 공식 무료 Dark Canvas 지도 (워터마크 완전 해결)
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ',
+            maxZoom: 16
         }).addTo(map);
 
-        // 500m 분석 격자 바운즈 (위도/경도)
+        // 분석 영역 바운즈
         const imageBounds = [[31.5, 124.0], [42.5, 132.0]];
         let currentImageOverlay = null;
 
-        // 2. 시나리오 데이터셋 정의
+        // 2. 시나리오 데이터셋
         const sdmData = {
             'present_baseline': {
                 title: '현재 기후 조건 (Baseline)',
@@ -278,7 +278,7 @@
             'ssp585_2100s': { title: 'SSP5-8.5 (2100s)', desc: '평균 HSI: 0.547 (+76.4%) | 중심 북상 거리: +33.0 km 북상 (동해안 연안 초고위험)', file: 'dusky_ssp585_2100s.png' }
         };
 
-        // 3. 레이어 자동 전환 함수
+        // 3. 레이어 업데이트 (경로 자동 감지)
         function updateLayer() {
             const scenario = document.getElementById('scenarioSelect').value;
             let year = document.getElementById('yearSelect').value;
@@ -291,7 +291,7 @@
             } else {
                 yearSelect.disabled = false;
                 if (year === 'baseline') {
-                    yearSelect.value = '2100s'; // 미래 선택 시 2100s 기본값
+                    yearSelect.value = '2100s';
                     year = '2100s';
                 }
             }
@@ -307,15 +307,21 @@
                 map.removeLayer(currentImageOverlay);
             }
 
-            // GitHub 저장소 내부 상대경로 로드
-            const imageUrl = `map_layers/${targetData.file}`;
-            currentImageOverlay = L.imageOverlay(imageUrl, imageBounds, {
-                opacity: 0.82,
-                interactive: false
-            }).addTo(map);
+            // 폴더 내/외부 경로 자동 대응
+            const primaryPath = `map_layers/${targetData.file}`;
+            const fallbackPath = targetData.file;
+
+            const testImg = new Image();
+            testImg.onload = function() {
+                currentImageOverlay = L.imageOverlay(primaryPath, imageBounds, { opacity: 0.85, interactive: false }).addTo(map);
+            };
+            testImg.onerror = function() {
+                // map_layers 폴더가 아닌 루트에 파일이 있을 경우 자동으로 fallback
+                currentImageOverlay = L.imageOverlay(fallbackPath, imageBounds, { opacity: 0.85, interactive: false }).addTo(map);
+            };
+            testImg.src = primaryPath;
         }
 
-        // 초기 실행
         updateLayer();
     </script>
 </body>
