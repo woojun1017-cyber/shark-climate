@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>한반도 흑상어 HSI 시뮬레이터</title>
+    <!-- Leaflet GIS 라이브러리 및 폰트 로드 -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-dark: #0B132B;
+            --bg-card: #1C2541;
+            --primary: #3A86FF;
+            --accent: #FF006E;
+            --text-main: #F8FAFC;
+            --text-sub: #94A3B8;
+            --border: #334155;
+            --safe: #38BDF8;
+            --warning: #FB7185;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Pretendard', -apple-system, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+        }
+
+        /* 1. 상단 타이틀 영역 */
+        header {
+            background-color: #0F172A;
+            padding: 10px 15px 6px 15px;
+            text-align: center;
+            border-bottom: 1.5px solid var(--border);
+            z-index: 10;
+        }
+
+        header h1 {
+            font-size: 1.05rem;
+            font-weight: 800;
+            color: #38BDF8;
+            letter-spacing: -0.5px;
+            margin-bottom: 1px;
+        }
+
+        /* 2. 컨트롤러 영역 - 한 줄 가로 배치 개편 */
+        .controls {
+            display: flex;
+            flex-direction: row;
+            justify-content: space-between;
+            align-items: center;
+            gap: 6px;
+            width: 100%;
+            margin-top: 6px;
+            background-color: #0F172A;
+        }
+
+        .ctrl-group {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .ctrl-group label {
+            font-size: 0.68rem;
+            color: var(--text-sub);
+            font-weight: 700;
+            margin-bottom: 2px;
+            padding-left: 2px;
+        }
+
+        .ctrl-group select, .static-badge {
+            width: 100%;
+            height: 32px;
+            padding: 0 6px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: var(--text-main);
+            background-color: #1E293B;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            box-sizing: border-box;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .static-badge {
+            background-color: #0F172A;
+            border-color: #475569;
+            color: #F1F5F9;
+        }
+
+        .ctrl-group select {
+            cursor: pointer;
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394a3b8'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 6px center;
+            background-size: 10px;
+            padding-right: 18px;
+        }
+
+        /* 3. 정보 오버레이 카드 */
+        .info-card {
+            background: linear-gradient(135deg, var(--bg-card), #0F172A);
+            border: 1.5px solid var(--border);
+            border-radius: 10px;
+            padding: 8px 12px;
+            margin: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+            z-index: 5;
+        }
+
+        .info-card .card-title {
+            font-size: 0.62rem;
+            color: var(--text-sub);
+            font-weight: 700;
+            text-transform: uppercase;
+            margin-bottom: 2px;
+        }
+
+        .info-card h2 {
+            font-size: 0.88rem;
+            font-weight: 800;
+            color: var(--text-main);
+            margin-bottom: 3px;
+        }
+
+        .info-card .metrics {
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #38BDF8;
+            line-height: 1.3;
+        }
+
+        /* 4. 지도 컨테이너 */
+        #map-container {
+            position: relative;
+            width: 100%;
+            height: calc(100% - 150px); /* 상단 헤더, 컨트롤러, 카드 제외 영역 가변 */
+            z-index: 1;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* 5. 범례 (Legend) */
+        .legend {
+            position: absolute;
+            bottom: 22px;
+            right: 8px;
+            background: rgba(15, 23, 42, 0.95);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 6px 8px;
+            font-size: 0.62rem;
+            z-index: 1000;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+            min-width: 110px;
+        }
+
+        .legend-title {
+            font-weight: 700;
+            margin-bottom: 4px;
+            color: var(--text-main);
+        }
+
+        .legend-bar {
+            height: 8px;
+            background: linear-gradient(to right, #1E3A8A, #06B6D4, #F59E0B, #EF4444, #7F1D1D);
+            border-radius: 3px;
+            margin-bottom: 3px;
+        }
+
+        .legend-labels {
+            display: flex;
+            justify-content: space-between;
+            color: var(--text-sub);
+            font-weight: 600;
+        }
+
+        /* 지도 오버레이 톤 개선 */
+        .leaflet-overlay-pane img {
+            mix-blend-mode: multiply;
+            opacity: 0.78 !important;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>우리가 '부캉이'를 또 볼 수 있을까?</h1>
+        <div class="controls">
+            <div class="ctrl-group">
+                <label>어종</label>
+                <span class="static-badge">흑상어</span>
+            </div>
+            <div class="ctrl-group">
+                <label>시나리오</label>
+                <select id="scenarioSelect" onchange="updateLayer()">
+                    <option value="present" selected>현재</option>
+                    <option value="ssp119">SSP1-1.9</option>
+                    <option value="ssp126">SSP1-2.6</option>
+                    <option value="ssp245">SSP2-4.5</option>
+                    <option value="ssp370">SSP3-7.0</option>
+                    <option value="ssp585">SSP5-8.5</option>
+                </select>
+            </div>
+            <div class="ctrl-group">
+                <label>연도</label>
+                <select id="yearSelect" onchange="updateLayer()">
+                    <option value="baseline" selected>기본선</option>
+                    <option value="2050s">2050년대</option>
+                    <option value="2100s">2100년대</option>
+                </select>
+            </div>
+        </div>
+    </header>
+
+    <div class="info-card">
+        <div class="card-title">선택된 예측 조건</div>
+        <h2 id="conditionDisplay">흑상어 | 현재 기후 (Baseline)</h2>
+        <div class="metrics" id="metricsDisplay">
+            평균 HSI: 0.310 | 분석 격자: True 500m (현 상태 유지)
+        </div>
+    </div>
+
+    <div id="map-container">
+        <div id="map"></div>
+        <div class="legend">
+            <div class="legend-title">서식 적합도 (HSI)</div>
+            <div class="legend-bar"></div>
+            <div class="legend-labels">
+                <span>안전</span>
+                <span>보통</span>
+                <span>위험</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 1. Leaflet 지도 초기화
+        const map = L.map('map', {
+            zoomControl: false,
+            minZoom: 5,
+            maxZoom: 10
+        }).setView([35.6, 128.5], 6.5);
+
+        // OSM 다크 테마 배경지도 추가 (데이터 시인성 극대화)
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+
+        // 가산오차 정합을 위한 투영 경계선 설정 (124°E ~ 132°E, 31.5°N ~ 42.5°N)
+        const imageBounds = [[31.5, 124.0], [42.5, 132.0]];
+        let currentImageOverlay = null;
+
+        // 2. 기나리오 및 연도별 흑상어 HSI 통계 데이터셋
+        const sdmData = {
+            'present_baseline': {
+                title: '현재 기후 조건 (Baseline)',
+                desc: '평균 HSI: 0.310 | 서해 및 남해안 중심 서식 분포 형성 (기준선)',
+                file: 'dusky_present.png'
+            },
+            'ssp119_2050s': { title: 'SSP1-1.9 (2050s)', desc: '평균 HSI: 0.325 (+4.8%) | 서식 영역 소폭 북상 가시화', file: 'dusky_ssp119_2050s.png' },
+            'ssp119_2100s': { title: 'SSP1-1.9 (2100s)', desc: '평균 HSI: 0.341 (+10.0%) | 기온 억제 시나리오 하에 서식 중심 장기적 안정화', file: 'dusky_ssp119_2100s.png' },
+            'ssp126_2050s': { title: 'SSP1-2.6 (2050s)', desc: '평균 HSI: 0.354 (+14.2%) | 남해안 및 동해 남부 연안 적합도 소폭 증가', file: 'dusky_ssp126_2050s.png' },
+            'ssp126_2100s': { title: 'SSP1-2.6 (2100s)', desc: '평균 HSI: 0.401 (+29.3%) | 중심 북상 거리: +11.8 km (점진적 위험 증가)', file: 'dusky_ssp126_2100s.png' },
+            'ssp245_2050s': { title: 'SSP2-4.5 (2050s)', desc: '평균 HSI: 0.398 (+28.4%) | 서해 중부 연안 및 동해안 적합도 확장 시작', file: 'dusky_ssp245_2050s.png' },
+            'ssp245_2100s': { title: 'SSP2-4.5 (2100s)', desc: '평균 HSI: 0.478 (+54.1%) | 중심 북상 거리: +18.7 km (중위험 노출)', file: 'dusky_ssp245_2100s.png' },
+            'ssp370_2050s': { title: 'SSP3-7.0 (2050s)', desc: '평균 HSI: 0.442 (+42.6%) | 강원도 및 경기 연안까지 고위험 영역 확대', file: 'dusky_ssp370_2050s.png' },
+            'ssp370_2100s': { title: 'SSP3-7.0 (2100s)', desc: '평균 HSI: 0.515 (+66.1%) | 중심 북상 거리: +25.4 km (고위험 확장)', file: 'dusky_ssp370_2100s.png' },
+            'ssp585_2050s': { title: 'SSP5-8.5 (2050s)', desc: '평균 HSI: 0.485 (+56.5%) | 여름철 제주·남해 고위험 상시화 및 동해 확장', file: 'dusky_ssp585_2050s.png' },
+            'ssp585_2100s': { title: 'SSP5-8.5 (2100s)', desc: '평균 HSI: 0.547 (+76.4%) | 중심 북상 거리: +33.0 km 북상 (동해안 연안 초고위험)', file: 'dusky_ssp585_2100s.png' }
+        };
+
+        // 3. 레이어 자동 전환 기능
+        function updateLayer() {
+            const scenario = document.getElementById('scenarioSelect').value;
+            let year = document.getElementById('yearSelect').value;
+            const yearSelect = document.getElementById('yearSelect');
+
+            // '현재' 시나리오 선택 시 연도를 '기본선'으로 강제 설정 및 비활성화
+            if (scenario === 'present') {
+                yearSelect.value = 'baseline';
+                yearSelect.disabled = true;
+                year = 'baseline';
+            } else {
+                yearSelect.disabled = false;
+                if (year === 'baseline') {
+                    yearSelect.value = '2050s'; // SSP 선택 시 '기본선'에서 '2050s'로 전환
+                    year = '2050s';
+                }
+            }
+
+            // 조건 키 생성
+            const dataKey = (scenario === 'present') ? 'present_baseline' : `${scenario}_${year}`;
+            const targetData = sdmData[dataKey];
+
+            if (!targetData) return;
+
+            // UI 내용 업데이트
+            document.getElementById('conditionDisplay').innerText = `흑상어 | ${targetData.title}`;
+            document.getElementById('metricsDisplay').innerText = targetData.desc;
+
+            // 지도 상의 이전 HSI 레이어 삭제 후 신규 로드
+            if (currentImageOverlay) {
+                map.removeLayer(currentImageOverlay);
+            }
+
+            const imageUrl = `./map_layers/${targetData.file}`;
+            currentImageOverlay = L.imageOverlay(imageUrl, imageBounds, {
+                opacity: 0.78,
+                interactive: false
+            }).addTo(map);
+        }
+
+        // 초기 화면 설정 로드
+        updateLayer();
+    </script>
+</body>
+</html>
