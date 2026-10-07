@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>한반도 흑상어 HSI 시뮬레이터</title>
-    <!-- Leaflet GIS 라이브러리 로드 -->
+    <!-- Leaflet GIS CSS & JS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -13,9 +13,9 @@
     
     <style>
         :root {
-            --bg-dark: #0B132B;
-            --bg-card: #1C2541;
-            --primary: #3A86FF;
+            --bg-dark: #0F172A;
+            --bg-card: #1E293B;
+            --primary: #38BDF8;
             --text-main: #F8FAFC;
             --text-sub: #94A3B8;
             --border: #334155;
@@ -38,21 +38,21 @@
         }
 
         header {
-            background-color: #0F172A;
-            padding: 10px 15px 8px 15px;
+            background-color: #0B1120;
+            padding: 10px 16px 8px 16px;
             text-align: center;
             border-bottom: 1.5px solid var(--border);
             z-index: 10;
         }
 
         header h1 {
-            font-size: 1.1rem;
+            font-size: 1.15rem;
             font-weight: 800;
             color: #38BDF8;
-            margin-bottom: 4px;
+            margin-bottom: 5px;
         }
 
-        /* 3개 컨트롤 가로 1행 균등 배치 */
+        /* 3개 컨트롤 가로 1행 균등 분할 */
         .controls {
             display: flex;
             flex-direction: row;
@@ -72,7 +72,7 @@
         }
 
         .ctrl-group label {
-            font-size: 0.7rem;
+            font-size: 0.72rem;
             color: var(--text-sub);
             font-weight: 700;
             margin-bottom: 3px;
@@ -80,9 +80,9 @@
 
         .ctrl-group select, .static-badge {
             width: 100%;
-            height: 34px;
+            height: 36px;
             padding: 0 8px;
-            font-size: 0.78rem;
+            font-size: 0.8rem;
             font-weight: 700;
             color: var(--text-main);
             background-color: #1E293B;
@@ -96,7 +96,7 @@
         }
 
         .static-badge {
-            background-color: #0F172A;
+            background-color: #0B1120;
             border-color: #475569;
         }
 
@@ -112,10 +112,10 @@
         }
 
         .info-card {
-            background: linear-gradient(135deg, var(--bg-card), #0F172A);
+            background: linear-gradient(135deg, var(--bg-card), #0B1120);
             border: 1.5px solid var(--border);
             border-radius: 8px;
-            padding: 8px 12px;
+            padding: 8px 14px;
             margin: 8px auto;
             max-width: 900px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.3);
@@ -129,14 +129,14 @@
         }
 
         .info-card h2 {
-            font-size: 0.92rem;
+            font-size: 0.95rem;
             font-weight: 800;
             color: var(--text-main);
             margin: 2px 0;
         }
 
         .info-card .metrics {
-            font-size: 0.75rem;
+            font-size: 0.78rem;
             font-weight: 600;
             color: #38BDF8;
         }
@@ -144,14 +144,14 @@
         #map-container {
             position: relative;
             width: 100%;
-            height: calc(100% - 155px);
+            height: calc(100% - 160px);
             z-index: 1;
         }
 
         #map {
             width: 100%;
             height: 100%;
-            background: #111827;
+            background: #E5E7EB;
         }
 
         .legend {
@@ -165,7 +165,7 @@
             font-size: 0.65rem;
             z-index: 1000;
             box-shadow: 0 2px 10px rgba(0,0,0,0.4);
-            min-width: 120px;
+            min-width: 125px;
         }
 
         .legend-title {
@@ -242,24 +242,24 @@
     </div>
 
     <script>
-        // 1. 지도 생성 (한반도 중심)
+        // 1. 지도 초기화 (한반도 중심 뷰)
         const map = L.map('map', {
             zoomControl: false,
             minZoom: 5,
             maxZoom: 10
         }).setView([35.8, 127.8], 6.5);
 
-        // ★ API KEY가 전혀 필요 없는 ESRI 공식 무료 Dark Canvas 지도 (워터마크 완전 해결)
-        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
-            attribution: 'Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ',
-            maxZoom: 16
+        // ★ API KEY가 전혀 필요 없는 OpenStreetMap(OSM) 공식 타일 적용
+        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors',
+            maxZoom: 18
         }).addTo(map);
 
-        // 분석 영역 바운즈
+        // HSI 래스터 레이어의 지리적 바운즈 (위도, 경도)
         const imageBounds = [[31.5, 124.0], [42.5, 132.0]];
-        let currentImageOverlay = null;
+        let currentOverlay = null;
 
-        // 2. 시나리오 데이터셋
+        // 2. 시나리오 데이터셋 정의
         const sdmData = {
             'present_baseline': {
                 title: '현재 기후 조건 (Baseline)',
@@ -267,7 +267,7 @@
                 file: 'dusky_present.png'
             },
             'ssp119_2050s': { title: 'SSP1-1.9 (2050s)', desc: '평균 HSI: 0.325 (+4.8%) | 서식 영역 소폭 북상 가시화', file: 'dusky_ssp119_2050s.png' },
-            'ssp119_2100s': { title: 'SSP1-1.9 (2100s)', desc: '평균 HSI: 0.341 (+10.0%) | 기온 억제 시나리오 하에 서식 중심 장기적 안정화', file: 'dusky_ssp119_2100s.png' },
+            'ssp119_2100s': { title: 'SSP1-1.9 (2100s)', desc: '평균 HSI: 0.341 (+10.0%) | 온실가스 감축 시나리오 하에 서식 중심 장기적 안정화', file: 'dusky_ssp119_2100s.png' },
             'ssp126_2050s': { title: 'SSP1-2.6 (2050s)', desc: '평균 HSI: 0.354 (+14.2%) | 남해안 및 동해 남부 연안 적합도 소폭 증가', file: 'dusky_ssp126_2050s.png' },
             'ssp126_2100s': { title: 'SSP1-2.6 (2100s)', desc: '평균 HSI: 0.401 (+29.3%) | 중심 북상 거리: +11.8 km (점진적 위험 증가)', file: 'dusky_ssp126_2100s.png' },
             'ssp245_2050s': { title: 'SSP2-4.5 (2050s)', desc: '평균 HSI: 0.398 (+28.4%) | 서해 중부 연안 및 동해안 적합도 확장 시작', file: 'dusky_ssp245_2050s.png' },
@@ -278,7 +278,7 @@
             'ssp585_2100s': { title: 'SSP5-8.5 (2100s)', desc: '평균 HSI: 0.547 (+76.4%) | 중심 북상 거리: +33.0 km 북상 (동해안 연안 초고위험)', file: 'dusky_ssp585_2100s.png' }
         };
 
-        // 3. 레이어 업데이트 (경로 자동 감지)
+        // 3. 레이어 업데이트 및 경로 자동 탐색 함수
         function updateLayer() {
             const scenario = document.getElementById('scenarioSelect').value;
             let year = document.getElementById('yearSelect').value;
@@ -303,25 +303,34 @@
             document.getElementById('conditionDisplay').innerText = `흑상어 | ${targetData.title}`;
             document.getElementById('metricsDisplay').innerText = targetData.desc;
 
-            if (currentImageOverlay) {
-                map.removeLayer(currentImageOverlay);
+            // 기존 레이어 제거
+            if (currentOverlay) {
+                map.removeLayer(currentOverlay);
+                currentOverlay = null;
             }
 
-            // 폴더 내/외부 경로 자동 대응
-            const primaryPath = `map_layers/${targetData.file}`;
-            const fallbackPath = targetData.file;
+            // 폴더 구조에 따른 2단계 경로 자동 탐지
+            const candidate1 = `./map_layers/${targetData.file}`;
+            const candidate2 = `./${targetData.file}`;
 
-            const testImg = new Image();
-            testImg.onload = function() {
-                currentImageOverlay = L.imageOverlay(primaryPath, imageBounds, { opacity: 0.85, interactive: false }).addTo(map);
+            const imgTester = new Image();
+            imgTester.onload = function() {
+                currentOverlay = L.imageOverlay(candidate1, imageBounds, {
+                    opacity: 0.82,
+                    interactive: false
+                }).addTo(map);
             };
-            testImg.onerror = function() {
-                // map_layers 폴더가 아닌 루트에 파일이 있을 경우 자동으로 fallback
-                currentImageOverlay = L.imageOverlay(fallbackPath, imageBounds, { opacity: 0.85, interactive: false }).addTo(map);
+            imgTester.onerror = function() {
+                // map_layers 폴더가 없을 경우 루트에서 직접 로드
+                currentOverlay = L.imageOverlay(candidate2, imageBounds, {
+                    opacity: 0.82,
+                    interactive: false
+                }).addTo(map);
             };
-            testImg.src = primaryPath;
+            imgTester.src = candidate1;
         }
 
+        // 초기 화면 실행
         updateLayer();
     </script>
 </body>
